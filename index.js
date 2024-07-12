@@ -11,7 +11,7 @@ connect(process.env.MONGO_LOCAL_URL)
 
 const TerminalSchema = new Schema(
     {
-        nombre: { type: String, required: true, maxlength: 50 },
+        nombre: { type: String, required: true, unique: true, maxlength: 50 },
         direccion: { type: String, required: true, maxlength: 50 },
         estado: { type: String, required: true, maxlength: 50 }
     },
@@ -23,7 +23,7 @@ const TerminalSchema = new Schema(
 const AutobusSchema = new Schema(
     {
         matricula: { type: String, required: true, unique: true, maxlength: 10 },
-        modelo: { type: String, required: true, maxlength: 50 },
+        marca: { type: String, required: true, maxlength: 50 },
         anio: { type: String, required: true, maxlength: 10 },
         activo: { type: Boolean, default: true },
         terminal: { type: Schema.Types.ObjectId, ref: "terminales", required: true }
@@ -116,9 +116,88 @@ const AdministradorModel = model("administradores", AdministradorSchema);
 const express = require("express");
 const app = express();
 
+app.use(express.json());
+
 app.get("/hola", function (req, res) {
   res.send("Hola desde Express.");
 });
+
+//////////////////////////////////
+
+app.post("/terminal",  async function (request, response) {
+    try {
+        const instancia = new TerminalModel(request.body);
+        const documento = await instancia.save();
+        response.json(documento);
+    } catch (e) {
+        console.error(e);
+        response.json({ error: "Error al insertar terminal en la BD" })
+    }
+})
+
+app.get("/terminal", async function (request, response) {
+    try {
+        const documentos = await TerminalModel.find().exec();
+        response.json(documentos);
+    } catch (e) {
+        console.error(e);
+        response.json({ error: "Error al consultar todas las terminales en la BD" })
+    }
+})
+
+app.post("/autobus", async function (request, response) {
+    try {
+        const { terminal } = request.body;
+        const terminalDoc = await TerminalModel.findById(terminal);
+        if (!terminalDoc) {
+            return response.json({ error: "La terminal no existe." });
+        }
+
+        const instancia = new AutobusModel(request.body);
+        const documento = await instancia.save();
+        response.json(documento);
+    } catch (e) {
+        console.error(e);
+        response.json({ error: "Error al insertar autobus en la BD" })
+    }
+})
+
+app.get("/terminal/:id", async function (request, response) {
+    try {
+        const { id } = request.params;
+        const documento = await TerminalModel.findById(id).exec();
+        response.json(documento);
+    } catch (e) {
+        console.error(e);
+        response.json({ error: "Error al consultar terminal por id  en la BD" })
+    }
+})
+
+app.get("/autobus", async function (request, response) {
+    try {
+        const documentos = await AutobusModel.find().exec();
+        response.json(documentos);
+    } catch (e) {
+        console.error(e);
+        response.json({ error: "Error al consultar todos los autobuses en la BD" })
+    }
+})
+
+app.get("/autobus/:id", async function (request, response) {
+    try {
+        const { id } = request.params;
+        const documento = await AutobusModel.findById(id)
+            .populate("terminal", { _id: 0, nombre: 1, direccion: 1, estado: 1 })
+            .exec();
+        response.json(documento);
+    } catch (e) {
+        console.error(e);
+        response.json({ error: "Error al consultar autobus por id en la BD" })
+    }
+})
+
+
+///////////////////////////////////
 
 app.listen(process.env.PORT_SERVER, function () {
   console.log("Servidor de Express en el puerto " + process.env.PORT_SERVER);
